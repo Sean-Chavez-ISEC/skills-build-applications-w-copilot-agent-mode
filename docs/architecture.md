@@ -28,22 +28,22 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 
 ## Implementation decisions
 
-Record your plan here before editing code.
+- **Presentation tier**: Keep route components focused on rendering and user interaction. Fetch through the shared API client; show an accessible loading status, meaningful empty state, and accessible error alert for each capability. Do not duplicate scoring or recommendation rules in React.
+- **Logic tier**: Keep HTTP parsing and status codes in the Express routes and put validation and domain behavior in `octofitService`. Reject invalid input and missing references with deliberate 4xx responses before persistence, rather than allowing Mongoose cast errors to become 500s.
+- **Data tier**: Use Mongoose schemas to require each contract field and represent user/team links as ObjectId references. Keep the existing upsert-based seed idempotent and preserve records that are not demo fixtures.
+- **Activity tracking**: Accept `userId`, `teamId`, `type`, and positive `minutes`; validate both IDs and confirm both records exist. Persist the references, activity details, `occurredAt`, and computed `points`. Use one point per minute, consistent with the seeded examples.
+- **Team management**: Require a non-empty name and mascot, default omitted members to an empty array, and store submitted member IDs as user references. List the stored name, mascot, and member IDs.
+- **Leaderboard**: Sum activity points by team, sort totals descending, then assign 1-based ranks in the returned order.
+- **Workout suggestions**: Find the user by email or return 404. Prefer workouts matching the user's fitness goal; if that does not identify a focus, use their most recent activity. Put the best match first and include a reason tied to the goal or activity.
 
-- Presentation tier decision:
-- Logic tier decision:
-- Data tier decision:
-- Activity tracking approach:
-- Team management approach:
-- Leaderboard approach:
-- Workout suggestions approach:
+Implement in dependency order: first add schema validation and keep the data/seed contract green; next complete and test activity and team service behavior; then add leaderboard aggregation and personalized workout selection; finally connect the four presentation routes to the API client and implement their loading, empty, and error states. Re-run the affected contract suite after each step, then run all suites and both builds.
 
 ## Test plan
 
-Record the commands you run and what each failure means.
+- `npm run test:data --prefix octofit-tracker/backend`: verifies required model fields, references/defaults, and idempotent non-destructive seeding. Current baseline: 4 of 5 tests fail on missing required User, Team, Activity, and Workout fields; the seed test passes.
+- `npm run test:api --prefix octofit-tracker/backend`: verifies HTTP validation, persistence/listing, leaderboard totals/ranks, and user-specific workout recommendations. Current baseline: all 4 tests fail; activity and team creation return 501 instead of validating input, the leaderboard is empty, and Mona's first workout does not match her endurance goal/activity. Later assertions in those API tests are not reached after the first failure.
+- `npm test --prefix octofit-tracker/frontend`: verifies API-backed rendering, the user-specific workout request, and loading/empty/error states for all four routes. Current baseline: all 15 tests fail because the route components still render “Implementation pending.”
+- `npm run build --prefix octofit-tracker/backend`: TypeScript check. Current baseline passes.
+- `npm run build --prefix octofit-tracker/frontend`: TypeScript and production Vite build. Current baseline passes.
 
-- Data-tier command: `npm run test:data --prefix octofit-tracker/backend`
-- API command: `npm run test:api --prefix octofit-tracker/backend`
-- Frontend command: `npm test --prefix octofit-tracker/frontend`
-- Backend build command: `npm run build --prefix octofit-tracker/backend`
-- Frontend build command: `npm run build --prefix octofit-tracker/frontend`
+Run the relevant tier's contract command while implementing, then run all five commands above before considering the work complete. A failure in a contract suite identifies a behavior that still violates that tier's contract; a build failure identifies a compile-time or bundling issue rather than a runtime contract failure.
